@@ -1,7 +1,7 @@
 <template>
   <div class="h-screen flex flex-col bg-cream overflow-hidden">
     <!-- Main Content -->
-    <div class="flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]">
+    <div ref="scrollContainer" class="flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]">
       <router-view @editRecord="openEdit" />
     </div>
 
@@ -38,7 +38,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import TabBar from './components/TabBar.vue'
 import AddRecordSheet from './components/AddRecordSheet.vue'
 import EditRecordSheet from './components/EditRecordSheet.vue'
@@ -46,8 +47,19 @@ import Toast from './components/Toast.vue'
 import { useAuthStore } from './stores/auth.js'
 import { useRecordStore } from './stores/records.js'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const store = useRecordStore()
+const scrollContainer = ref(null)
+
+// 监听路由变化，切换页面时滚动到顶部
+watch(() => router.currentRoute.value, () => {
+  nextTick(() => {
+    if (scrollContainer.value) {
+      scrollContainer.value.scrollTop = 0
+    }
+  })
+})
 
 const showAddSheet = ref(false)
 const showEditSheet = ref(false)
