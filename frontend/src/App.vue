@@ -95,8 +95,10 @@ async function onDeleteRecord() {
   showEditSheet.value = false
 }
 
-onMounted(() => {
-  authStore.init()
+// V1.1+：authStore.init() 是异步的（会调 /me 验证 token），必须 await
+// 否则后续的 isLoggedIn 检查会拿到陈旧值，导致登录后首页不显示
+onMounted(async () => {
+  await authStore.init()
   if (authStore.isLoggedIn) {
     store.init()
   }

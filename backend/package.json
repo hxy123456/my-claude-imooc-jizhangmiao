@@ -1,0 +1,33 @@
+{
+  "name": "countcat-backend",
+  "version": "1.1.0",
+  "description": "记账喵 (CountCat) 后端 - V1.1+ 多用户服务端实现",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:init": "node scripts/init-db.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  },
+  "keywords": [
+    "countcat",
+    "记账",
+    "express",
+    "mysql",
+    "jwt"
+  ],
+  "license": "MIT"
+}

@@ -81,21 +81,34 @@
       </button>
     </div>
 
+    <!-- 注册成功提示 -->
+    <Transition name="fade-up">
+      <div
+        v-if="registered"
+        class="fixed top-1/3 left-1/2 -translate-x-1/2 bg-mint/90 text-bark px-5 py-2.5 rounded-2xl text-sm font-medium shadow-lg shadow-mint/30 z-50"
+      >
+        🎉 注册成功，请登录
+      </div>
+    </Transition>
+
     <!-- Footer -->
-    <p class="mt-8 text-xs text-clay/30 fade-in-up stagger-2">v1.0.1 · 数据仅存储在本地</p>
+    <p class="mt-8 text-xs text-clay/30 fade-in-up stagger-2">v1.1.0 · 数据存储在云端</p>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 const mode = ref('login')
 const form = ref({ username: '', password: '' })
 const showPassword = ref(false)
 const submitting = ref(false)
+const registered = ref(false)
 
 const canSubmit = computed(() =>
   form.value.username.trim().length >= 2 &&
@@ -105,10 +118,40 @@ const canSubmit = computed(() =>
 async function onSubmit() {
   if (!canSubmit.value || submitting.value) return
   submitting.value = true
+  authStore.error = ''
 
-  const fn = mode.value === 'login' ? authStore.login : authStore.register
-  await fn(form.value.username.trim(), form.value.password)
-
-  submitting.value = false
+  try {
+    if (mode.value === 'register') {
+      const ok = await authStore.register(form.value.username.trim(), form.value.password)
+      if (ok) {
+        // 注册成功：清空密码、保留用户名、切换到登录 Tab、弹提示
+        form.value.password = ''
+        mode.value = 'login'
+        authStore.error = ''
+        registered.value = true
+        setTimeout(() => { registered.value = false }, 2000)
+      }
+    } else {
+      const ok = await authStore.login(form.value.username.trim(), form.value.password)
+      if (ok) {
+        // 登录成功：显式跳转到首页（路由守卫也会兜底跳转，但显式更直观）
+        await router.push('/home')
+      }
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
+
+<style scoped>
+.fade-up-enter-active,
+.fade-up-leave-active {
+  transition: all 0.3s ease;
+}
+.fade-up-enter-from,
+.fade-up-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -10px);
+}
+</style>

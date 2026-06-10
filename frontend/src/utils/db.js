@@ -1,5 +1,18 @@
 import Dexie from 'dexie'
 
+/**
+ * V1.1+ 本地数据层
+ *
+ * 调整说明：
+ * - 用户/鉴权已迁到后端 MySQL + JWT（见 utils/apiClient.js + stores/auth.js）
+ * - 本文件仅保留 records 表与 Record 模型，供 stores/records.js 使用
+ * - 移除了 registerUser / loginUser / getUserById / hashPassword / sha256Fallback
+ *
+ * 数据流（V1.1 过渡期）：
+ *   用户/鉴权 → MySQL（后端）
+ *   记账记录 → IndexedDB（本地）  ← V1.1+ 后续迁移到 MySQL
+ */
+
 const db = new Dexie('CountCatDB')
 
 db.version(1).stores({
@@ -8,78 +21,8 @@ db.version(1).stores({
 
 db.version(2).stores({
   records: '++id, userId, type, categoryId, subCategoryId, recordDate, createdAt, isDeleted',
-  users: '++id, username, createdAt',
+  // users 表不再使用：用户统一走后端
 })
-
-// --- Password Hashing ---
-
-// Web Crypto API 的兼容性处理
-const getCryptoSubtle = () => {
-  if (typeof crypto !== 'undefined' && crypto.subtle) return crypto.subtle
-  if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) return window.crypto.subtle
-  return null
-}
-
-// SHA-256 纯 JS 实现（用于不支持 Web Crypto API 的环境）
-const sha256Fallback = async (str) => {
-  const bytes = new TextEncoder().encode(str)
-  const hash = new Uint8Array(bytes.length * 2)
-  // 简化的 XOR hash 作为后备
-  for (let i = 0; i < bytes.length; i++) {
-    hash[i] = bytes[i]
-    hash[i + bytes.length] = bytes[i] ^ 0x5A
-  }
-  // 使用简单的字符编码转换
-  let result = ''
-  for (let i = 0; i < bytes.length; i++) {
-    result += String.fromCharCode(bytes[i])
-  }
-  return result.split('').map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
-}
-
-export async function hashPassword(password) {
-  const subtle = getCryptoSubtle()
-  if (!subtle) {
-    console.warn('Web Crypto API 不可用，使用后备方案')
-    return sha256Fallback(password)
-  }
-  
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password)
-  const hashBuffer = await subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-// --- User Operations ---
-
-export async function registerUser(username, password) {
-  const existing = await db.users.where('username').equals(username).first()
-  if (existing) throw new Error('用户名已存在')
-
-  const passwordHash = await hashPassword(password)
-  const userId = await db.users.add({
-    username,
-    passwordHash,
-    createdAt: new Date().toISOString(),
-  })
-  return { id: userId, username }
-}
-
-export async function loginUser(username, password) {
-  console.log(await db.users.toArray());
-  const user = await db.users.where('username').equals(username).first()
-  if (!user) throw new Error('用户名不存在')
-
-  const hash = await hashPassword(password)
-  if (hash !== user.passwordHash) throw new Error('密码错误')
-
-  return { id: user.id, username: user.username }
-}
-
-export async function getUserById(id) {
-  return db.users.get(id)
-}
 
 // --- Record Model ---
 
