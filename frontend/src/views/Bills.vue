@@ -3,7 +3,19 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
       <h1 class="text-xl font-display text-bark">账单</h1>
-      <span class="text-xs text-clay/50">{{ store.records.length }} 条记录</span>
+      <div class="flex items-center gap-2">
+        <button
+          @click="prevMonth"
+          class="w-8 h-8 rounded-lg bg-sand flex items-center justify-center text-clay/60 text-sm active:scale-95 transition-transform"
+        >‹</button>
+        <span class="text-sm font-medium text-bark min-w-[5rem] text-center">{{ displayMonth }}</span>
+        <button
+          @click="nextMonth"
+          class="w-8 h-8 rounded-lg bg-sand flex items-center justify-center text-sm active:scale-95 transition-transform"
+          :class="isCurrentMonth ? 'text-clay/30 cursor-not-allowed' : 'text-clay/60'"
+          :disabled="isCurrentMonth"
+        >›</button>
+      </div>
     </div>
 
     <!-- Search & Filter -->
@@ -155,6 +167,15 @@ const emit = defineEmits(['editRecord', 'showToast'])
 const keyword = ref('')
 const showFilter = ref(false)
 const selectedFilter = ref('')
+const currentMonth = ref(dayjs().format('YYYY-MM'))
+
+const displayMonth = computed(() => {
+  const [y, m] = currentMonth.value.split('-')
+  return `${y}年${Number(m)}月`
+})
+
+/** 当前月份是否已是本月（不允许再往后翻） */
+const isCurrentMonth = computed(() => currentMonth.value === dayjs().format('YYYY-MM'))
 
 /** 删除确认浮窗状态 */
 const showConfirm = ref(false)
@@ -163,10 +184,29 @@ const deleting = ref(false)
 
 const allCategories = computed(() => [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES])
 
+function prevMonth() {
+  currentMonth.value = dayjs(currentMonth.value).subtract(1, 'month').format('YYYY-MM')
+  doSearch()
+}
+
+function nextMonth() {
+  if (isCurrentMonth.value) return
+  currentMonth.value = dayjs(currentMonth.value).add(1, 'month').format('YYYY-MM')
+  doSearch()
+}
+
+/** 统一切换月份 / 筛选后的查询入口 */
+function doSearch() {
+  store.searchRecords({
+    keyword: keyword.value,
+    categoryId: selectedFilter.value,
+    month: currentMonth.value,
+  })
+}
+
 /** 进入 Bills 页：从后端拉一次（默认按当前月） */
 onMounted(() => {
-  const month = dayjs().format('YYYY-MM')
-  store.searchRecords({ month })
+  doSearch()
 })
 
 const filteredRecords = computed(() => {
@@ -220,15 +260,13 @@ let searchTimer = null
 function onSearch() {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
-    const month = dayjs().format('YYYY-MM')
-    store.searchRecords({ keyword: keyword.value, categoryId: selectedFilter.value, month })
+    doSearch()
   }, 300)
 }
 
 // 监听筛选变化立即重查
 watch(selectedFilter, () => {
-  const month = dayjs().format('YYYY-MM')
-  store.searchRecords({ keyword: keyword.value, categoryId: selectedFilter.value, month })
+  doSearch()
 })
 
 // Slide to delete
