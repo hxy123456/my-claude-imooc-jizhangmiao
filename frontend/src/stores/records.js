@@ -40,19 +40,28 @@ export const useRecordStore = defineStore('records', () => {
 
   const recentRecords = computed(() => records.value.slice(0, 5))
 
+  /** 防止 init() 并发重入：同一时刻只允许一轮拉取 */
+  let _initPromise = null
+
   /**
    * 登录态建立后调用：拉一次首页 + 当月数据。
    * - records:     最近一个月内的列表（Bills 进来后用 setMonth 再扩）
    * - todayExpense: 今日支出
    * - monthlyStats: 当前月聚合（首页 / 统计页都吃它）
+   * - 内置并发保护：若上一轮未完成则直接返回进行中的 Promise
    */
   async function init() {
+    if (_initPromise) return _initPromise
     loading.value = true
-    try {
-      await Promise.all([refreshRecords(), refreshToday(), refreshMonthly(currentMonth.value)])
-    } finally {
-      loading.value = false
-    }
+    _initPromise = (async () => {
+      try {
+        await Promise.all([refreshRecords(), refreshToday(), refreshMonthly(currentMonth.value)])
+      } finally {
+        loading.value = false
+        _initPromise = null
+      }
+    })()
+    return _initPromise
   }
 
   /** 拉最近记录（首页 + 通用最近 10） */

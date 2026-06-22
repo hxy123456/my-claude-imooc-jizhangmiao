@@ -191,7 +191,6 @@ async function onDeleteRecord() {
 onMounted(async () => {
   await authStore.init()
   if (authStore.isLoggedIn) {
-    store.init()
     initUserScopedStores()
   }
 })

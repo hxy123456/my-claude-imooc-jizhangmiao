@@ -26,8 +26,10 @@ export const useAccountStore = defineStore('accounts', () => {
    * 拉取当前 token 对应用户的所有账户。
    * - 由 App.vue 在登录态建立后调用
    * - 切换账号：先 reset() 再 initForUser()
+   * - 内置并发保护：已在加载中则直接返回
    */
   async function initForUser() {
+    if (loading.value) return  // 防止并发重复请求
     loading.value = true
     lastError.value = ''
     try {

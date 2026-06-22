@@ -42,8 +42,10 @@ export const useCategoryStore = defineStore('categories', () => {
   /**
    * 拉取整棵树（后端已合并：内置全量 + 当前用户自定义）
    * - 由 App.vue 在登录态建立后调用
+   * - 内置并发保护：已在加载中则直接返回
    */
   async function initForUser() {
+    if (loading.value) return  // 防止并发重复请求
     loading.value = true
     lastError.value = ''
     try {
