@@ -14,21 +14,54 @@
         <span class="text-cream/60 text-xs font-medium tracking-wider uppercase">{{ monthLabel }}</span>
         <div class="w-2 h-2 rounded-full bg-mint animate-pulse"></div>
       </div>
-      <div class="grid grid-cols-3 gap-3">
+
+      <!-- 支出 / 收入 并排 -->
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <!-- 支出 -->
         <div>
-          <div class="text-cream/50 text-[10px] mb-1">支出</div>
-          <div class="text-cream font-mono font-semibold text-lg">¥{{ formatMoney(stats.totalExpense) }}</div>
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <span class="text-[10px] text-cream/40 uppercase tracking-wide">支出</span>
+          </div>
+          <div class="text-cream font-mono font-bold text-xl leading-tight">
+            ¥{{ formatMoney(stats.totalExpense) }}
+          </div>
+          <!-- 迷你比例条 -->
+          <div class="mt-2 h-1 bg-cream/10 rounded-full overflow-hidden">
+            <div
+              class="h-full bg-coral/70 rounded-full transition-all duration-700"
+              :style="{ width: expensePercent + '%' }"
+            ></div>
+          </div>
         </div>
+
+        <!-- 收入 -->
         <div>
-          <div class="text-cream/50 text-[10px] mb-1">收入</div>
-          <div class="text-mint font-mono font-semibold text-lg">¥{{ formatMoney(stats.totalIncome) }}</div>
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <span class="text-[10px] text-cream/40 uppercase tracking-wide">收入</span>
+          </div>
+          <div class="text-mint font-mono font-bold text-xl leading-tight">
+            ¥{{ formatMoney(stats.totalIncome) }}
+          </div>
+          <div class="mt-2 h-1 bg-cream/10 rounded-full overflow-hidden">
+            <div
+              class="h-full bg-mint/70 rounded-full transition-all duration-700"
+              :style="{ width: incomePercent + '%' }"
+            ></div>
+          </div>
         </div>
-        <div>
-          <div class="text-cream/50 text-[10px] mb-1">结余</div>
-          <div
-            class="font-mono font-semibold text-lg"
-            :class="stats.balance >= 0 ? 'text-honey' : 'text-coral'"
-          >¥{{ formatMoney(Math.abs(stats.balance)) }}</div>
+      </div>
+
+      <!-- 分隔线 -->
+      <div class="h-px bg-cream/10 mb-3"></div>
+
+      <!-- 结余 -->
+      <div class="flex items-center justify-between">
+        <span class="text-cream/40 text-[10px] uppercase tracking-wide">本月结余</span>
+        <div
+          class="font-mono font-bold text-xl"
+          :class="stats.balance >= 0 ? 'text-honey' : 'text-coral'"
+        >
+          {{ stats.balance >= 0 ? '+' : '−' }}¥{{ formatMoney(Math.abs(stats.balance)) }}
         </div>
       </div>
     </div>
@@ -117,6 +150,16 @@ defineEmits(['editRecord'])
 const stats = computed(() => store.monthlyStats)
 
 const monthLabel = computed(() => dayjs().format('YYYY年M月'))
+
+/** 支出/收入比例条的百分比（以两者中较大者为 100%） */
+const expensePercent = computed(() => {
+  const max = Math.max(stats.value.totalExpense, stats.value.totalIncome, 1)
+  return ((stats.value.totalExpense || 0) / max * 100).toFixed(0)
+})
+const incomePercent = computed(() => {
+  const max = Math.max(stats.value.totalExpense, stats.value.totalIncome, 1)
+  return ((stats.value.totalIncome || 0) / max * 100).toFixed(0)
+})
 
 function formatMoney(val) {
   return (val || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
