@@ -21,6 +21,10 @@
       >
         {{ record.type === 'expense' ? '-' : '+' }}¥{{ record.amount.toFixed(2) }}
       </div>
+      <div
+        v-if="record.dateShort"
+        class="text-[10px] text-clay/40 mt-0.5 font-mono tracking-tight"
+      >{{ record.dateShort }}</div>
     </div>
   </div>
 </template>

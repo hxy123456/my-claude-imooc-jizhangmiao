@@ -51,4 +51,34 @@ async function me(req, res) {
   })
 }
 
-module.exports = { register, login, me }
+/**
+ * PATCH /api/auth/me  — 需鉴权
+ * body: { nickname?, avatar? }
+ * resp: { ok:true, data:{ user } }
+ */
+async function updateMe(req, res, next) {
+  try {
+    const user = await authService.updateMe(req.user.id, req.body || {})
+    return res.json({ ok: true, data: { user } })
+  } catch (err) {
+    return next(err)
+  }
+}
+
+/**
+ * POST /api/auth/logout  — 需鉴权
+ * resp: { ok:true, data:{ revoked: true } }
+ */
+async function logout(req, res, next) {
+  try {
+    await authService.logout(req.token, req.user)
+    return res.json({
+      ok: true,
+      data: { revoked: true },
+    })
+  } catch (err) {
+    return next(err)
+  }
+}
+
+module.exports = { register, login, me, updateMe, logout }

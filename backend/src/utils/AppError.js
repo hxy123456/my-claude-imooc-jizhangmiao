@@ -25,6 +25,7 @@ class AppError extends Error {
 function defaultStatusFor(code, ErrorCode) {
   if (code === ErrorCode.USER_EXISTS) return 409
   if (code === ErrorCode.USER_NOT_FOUND) return 404
+  if (code === ErrorCode.NOT_FOUND) return 404
   if (
     code === ErrorCode.INVALID_CREDENTIALS ||
     code === ErrorCode.UNAUTHORIZED
@@ -32,10 +33,20 @@ function defaultStatusFor(code, ErrorCode) {
     return 401
   }
   if (code === ErrorCode.TOKEN_EXPIRED) return 401
+  if (code === ErrorCode.TOKEN_REVOKED) return 401
   if (code === ErrorCode.INVALID_TOKEN) return 401
   if (code === ErrorCode.INVALID_USERNAME || code === ErrorCode.INVALID_PASSWORD) {
     return 400
   }
+  if (code === ErrorCode.ACCOUNT_SYSTEM_PROTECTED) return 403
+  if (code === ErrorCode.CATEGORY_SYSTEM_PROTECTED) return 403
+  if (code === ErrorCode.CATEGORY_HAS_RECORDS) return 409
+  if (code === ErrorCode.ACCOUNT_NOT_FOUND) return 404
+  if (code === ErrorCode.CATEGORY_NOT_FOUND) return 404
+  if (code === ErrorCode.RECORD_NOT_FOUND) return 404
+  if (code === ErrorCode.UPLOAD_TOO_LARGE) return 413
+  if (code === ErrorCode.UPLOAD_BAD_TYPE) return 415
+  if (code === ErrorCode.UPLOAD_FAILED) return 400
   if (code === ErrorCode.BAD_REQUEST) return 400
   return 500
 }

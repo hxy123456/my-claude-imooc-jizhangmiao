@@ -108,7 +108,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import BottomSheet from './BottomSheet.vue'
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../utils/categories.js'
+import { useCategoryStore } from '../stores/categories.js'
 
 const props = defineProps({
   open: Boolean,
@@ -118,8 +118,14 @@ const emit = defineEmits(['close', 'submit', 'delete'])
 
 const form = ref({ amount: '', type: 'expense', categoryId: '', subCategoryId: '', note: '', recordDate: '' })
 
+const categoryStore = useCategoryStore()
+
+/**
+ * 分类数据走 useCategoryStore,与 AddRecordSheet、设置页"分类管理"共用同一份数据源
+ *  —— 系统内置 + 当前用户自定义子分类,后端已合并返回
+ */
 const currentCategories = computed(() =>
-  form.value.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
+  form.value.type === 'expense' ? categoryStore.expenseList : categoryStore.incomeList
 )
 
 const selectedCategory = computed(() =>
@@ -139,6 +145,10 @@ watch(() => props.open, (val) => {
       subCategoryId: props.record.subCategoryId || '',
       note: props.record.note || '',
       recordDate: props.record.recordDate,
+    }
+    // 兜底:App.vue 未触发 init 时,弹层打开主动拉一次
+    if (!categoryStore.expenseList.length && !categoryStore.incomeList.length) {
+      categoryStore.initForUser()
     }
   }
 })

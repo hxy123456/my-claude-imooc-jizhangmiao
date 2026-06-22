@@ -203,6 +203,10 @@ watch(() => stats.value, () => {
 }, { deep: true })
 
 onMounted(() => {
+  // 进入统计页：拉一次当前月聚合
+  if (stats.value.month !== currentMonth.value) {
+    store.setMonth(currentMonth.value)
+  }
   nextTick(() => {
     renderPieChart()
     renderBarChart()

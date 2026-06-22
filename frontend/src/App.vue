@@ -2,19 +2,11 @@
   <div class="h-screen flex flex-col bg-cream overflow-hidden">
     <!-- Main Content -->
     <div ref="scrollContainer" class="flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]">
-      <router-view @editRecord="openEdit" />
+      <router-view @editRecord="openEdit" @requestLogout="askLogout" @showToast="showToast" />
     </div>
 
-    <!-- FAB -->
-    <button
-      v-if="authStore.isLoggedIn"
-      @click="showAddSheet = true"
-      class="fixed right-5 z-30 w-14 h-14 rounded-2xl bg-coral text-white text-2xl shadow-lg shadow-coral/30 flex items-center justify-center active:scale-90 transition-transform"
-      :style="{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }"
-    >+</button>
-
-    <!-- Tab Bar -->
-    <TabBar v-if="authStore.isLoggedIn" />
+    <!-- Tab Bar（含中间凸起的"+"按钮，点击通过 @add 事件触发新增弹层） -->
+    <TabBar v-if="authStore.isLoggedIn" @add="showAddSheet = true" />
 
     <!-- Add Record Sheet -->
     <AddRecordSheet
@@ -34,6 +26,46 @@
 
     <!-- Toast -->
     <Toast :message="toastMsg" />
+
+    <!-- Logout Confirm Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="showLogoutModal"
+          class="fixed inset-0 z-50 flex items-center justify-center px-6"
+          @click.self="showLogoutModal = false"
+        >
+          <div class="absolute inset-0 bg-bark/40 backdrop-blur-sm"></div>
+          <div class="relative w-full max-w-xs bg-cream rounded-3xl p-6 shadow-2xl shadow-bark/30 fade-in-up">
+            <div class="text-center mb-5">
+              <div class="text-4xl mb-2">🚪</div>
+              <h3 class="text-lg font-display text-bark">退出登录？</h3>
+              <p class="text-xs text-clay/50 mt-1.5 leading-relaxed">
+                退出后需要重新输入用户名和密码<br/>才能再次进入你的账本
+              </p>
+            </div>
+            <div class="flex gap-2">
+              <button
+                @click="showLogoutModal = false"
+                :disabled="loggingOut"
+                class="flex-1 py-3 rounded-2xl bg-sand text-clay text-sm font-medium active:scale-[0.98] transition-transform disabled:opacity-50"
+              >取消</button>
+              <button
+                @click="confirmLogout"
+                :disabled="loggingOut"
+                class="flex-1 py-3 rounded-2xl bg-coral text-white text-sm font-semibold active:scale-[0.98] transition-transform shadow-md shadow-coral/30 disabled:opacity-50"
+              >
+                <span v-if="loggingOut" class="inline-flex items-center gap-1.5">
+                  <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  退出中
+                </span>
+                <span v-else>确认退出</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -46,11 +78,33 @@ import EditRecordSheet from './components/EditRecordSheet.vue'
 import Toast from './components/Toast.vue'
 import { useAuthStore } from './stores/auth.js'
 import { useRecordStore } from './stores/records.js'
+import { useAccountStore } from './stores/accounts.js'
+import { useCategoryStore } from './stores/categories.js'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const store = useRecordStore()
+const accountStore = useAccountStore()
+const categoryStore = useCategoryStore()
 const scrollContainer = ref(null)
+
+/**
+ * V1.2+：登录态建立后初始化用户级数据（账户、分类、记录）。
+ * - 在 login() 成功后（userId 可用时）调用
+ * - 登出 / 切换账号时调用 reset() 清空
+ * - 不再传 userId：HTTP 路径里 token 自带身份
+ */
+function initUserScopedStores() {
+  if (authStore.isLoggedIn) {
+    accountStore.initForUser()
+    categoryStore.initForUser()
+    store.init()
+  } else {
+    accountStore.reset()
+    categoryStore.reset()
+    store.reset()
+  }
+}
 
 // 监听路由变化，切换页面时滚动到顶部
 watch(() => router.currentRoute.value, () => {
@@ -61,14 +115,51 @@ watch(() => router.currentRoute.value, () => {
   })
 })
 
+// 监听 isLoggedIn：从 true 变 false 时（token 被吊销/过期）自动跳登录页
+// 用户主动 logout 时 loggingOut=true，跳过这条路径（confirmLogout 会自己 push）
+// 同时：true 变 true 时（即 token 恢复 / 刷新后）确保账户/分类 store 被重新初始化
+watch(() => authStore.isLoggedIn, (loggedIn, wasLoggedIn) => {
+  if (wasLoggedIn && !loggedIn && !loggingOut.value) {
+    // eslint-disable-next-line no-console
+    console.warn('[app] 检测到登录态失效，跳转登录页')
+    router.push('/')
+    showToast('登录已失效，请重新登录')
+  } else if (loggedIn && authStore.userId) {
+    // 进入登录态：保证账户/分类 store 是当前用户的
+    initUserScopedStores()
+  }
+})
+
 const showAddSheet = ref(false)
 const showEditSheet = ref(false)
+const showLogoutModal = ref(false)
+const loggingOut = ref(false)
 const editingRecord = ref(null)
 const toastMsg = ref('')
 
 function showToast(msg) {
   toastMsg.value = ''
   requestAnimationFrame(() => { toastMsg.value = msg })
+}
+
+function askLogout() {
+  showLogoutModal.value = true
+}
+
+async function confirmLogout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await authStore.logout()
+    store.reset()
+    accountStore.reset()
+    categoryStore.reset()
+    showLogoutModal.value = false
+    await router.push('/')
+    showToast('已退出登录')
+  } finally {
+    loggingOut.value = false
+  }
 }
 
 async function onAddRecord(data) {
@@ -101,6 +192,7 @@ onMounted(async () => {
   await authStore.init()
   if (authStore.isLoggedIn) {
     store.init()
+    initUserScopedStores()
   }
 })
 </script>

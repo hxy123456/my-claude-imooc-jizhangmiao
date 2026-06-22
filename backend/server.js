@@ -1,10 +1,65 @@
 /**
  * 服务入口
- * 流程：load env → ping DB → start HTTP → 监听进程信号优雅退出
+ * 流程：load env → ping DB → start HTTP（端口冲突自动顺延） → 监听进程信号优雅退出
  */
 const app = require('./src/app')
 const env = require('./src/config/env')
 const db = require('./src/config/db')
+
+/**
+ * 顺延上限：起始端口被占后，最多向后顺延 PORT_FALLBACK_MAX 个端口
+ *  默认 10，即 [PORT, PORT+10] 这个闭区间内寻找可用端口
+ */
+function intEnv(name, defaultValue) {
+  const raw = process.env[name]
+  if (raw === undefined || raw === '') return defaultValue
+  const n = Number.parseInt(raw, 10)
+  if (Number.isNaN(n)) {
+    throw new Error(`环境变量 ${name} 必须是整数，当前为: ${raw}`)
+  }
+  return n
+}
+
+const FALLBACK_MAX = intEnv('PORT_FALLBACK_MAX', 10)
+
+/**
+ * 直接尝试 listen；若 EADDRINUSE 则顺延到下一端口
+ * - 比"先 probe 再 listen"更可靠：probe 成功后到真正 listen 之间存在窗口期，
+ *   此时另一进程可能抢端口 → app.listen 仍会失败
+ * - listen-then-retry 模式让 OS 帮我们做最终仲裁，无窗口期
+ * @returns {Promise<{server: import('http').Server, port: number, tried: number[]}>}
+ */
+function listenWithFallback(app, startPort, maxOffset) {
+  const tried = []
+  return new Promise((resolve, reject) => {
+    const tryListen = (offset) => {
+      const port = startPort + offset
+      tried.push(port)
+      let settled = false
+      const server = app.listen(port)
+      const onError = (err) => {
+        if (settled) return
+        settled = true
+        server.removeListener('listening', onListening)
+        if (err && err.code === 'EADDRINUSE' && offset < maxOffset) {
+          // 顺延到下一端口
+          tryListen(offset + 1)
+          return
+        }
+        reject(err)
+      }
+      const onListening = () => {
+        if (settled) return
+        settled = true
+        server.removeListener('error', onError)
+        resolve({ server, port, tried })
+      }
+      server.once('error', onError)
+      server.once('listening', onListening)
+    }
+    tryListen(0)
+  })
+}
 
 async function main() {
   // 启动前 ping 一次数据库，连接不通直接 fail-fast
@@ -23,10 +78,25 @@ async function main() {
     process.exit(1)
   }
 
-  const server = app.listen(env.PORT, () => {
+  // 找可用端口（顺延）：直接 listen，EADDRINUSE 时再顺延
+  let server
+  try {
+    const result = await listenWithFallback(app, env.PORT, FALLBACK_MAX)
+    server = result.server
+    if (result.tried.length > 1) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[port] 起始端口 ${env.PORT} 被占用，顺延至 ${result.port}（尝试: ${result.tried.join(' → ')}）`
+      )
+    }
     // eslint-disable-next-line no-console
-    console.log(`[countcat-backend] 监听 http://localhost:${env.PORT}  (env=${env.NODE_ENV})`)
-  })
+    console.log(
+      `[countcat-backend] 监听 http://localhost:${result.port}  (env=${env.NODE_ENV})`
+    )
+  } catch (err) {
+    console.error(`[port] 找不到可用端口（已尝试 PORT ~ PORT+${FALLBACK_MAX}）: ${err.message}`)
+    process.exit(1)
+  }
 
   // 优雅关闭
   const shutdown = async (signal) => {

@@ -115,7 +115,76 @@ export const authApi = {
     request('POST', '/auth/register', { body: { username, password }, auth: false }),
   login: (username, password) =>
     request('POST', '/auth/login', { body: { username, password }, auth: false }),
+  logout: () => request('POST', '/auth/logout'),
   me: () => request('GET', '/auth/me'),
+  /** PATCH /api/auth/me — 改 nickname / avatar */
+  updateMe: (patch) => request('PATCH', '/auth/me', { body: patch }),
+}
+
+export const recordsApi = {
+  /** 分页 + 筛选 */
+  list: (query = {}) => request('GET', '/records', { query }),
+  /** 最近 N 条（首页用） */
+  recent: (limit = 10) => request('GET', '/records/recent', { query: { limit } }),
+  /** 单条 */
+  detail: (id) => request('GET', `/records/${id}`),
+  /** 新增 */
+  create: (payload) => request('POST', '/records', { body: payload }),
+  /** 修改 */
+  update: (id, payload) => request('PATCH', `/records/${id}`, { body: payload }),
+  /** 软删 */
+  remove: (id) => request('DELETE', `/records/${id}`),
+}
+
+export const statsApi = {
+  home: () => request('GET', '/stats/home'),
+  /** 概览 */
+  overview: (month) => request('GET', '/stats/overview', { query: { month } }),
+  /** 一次性返回月度聚合：{ month, monthLabel, totalIncome, totalExpense, balance, count, categoryMap, dailyMap, records } */
+  monthly: (month) => request('GET', '/stats/monthly', { query: { month } }),
+  categoryExpense: (month, limit = 10) =>
+    request('GET', '/stats/category-expense', { query: { month, limit } }),
+  categoryIncome: (month) => request('GET', '/stats/category-income', { query: { month } }),
+  dailyTrend: (month) => request('GET', '/stats/daily-trend', { query: { month } }),
+  /** Excel 二进制：直接返回 res，需要外部包一层 */
+  exportUrl: (month) => `/api/stats/export?month=${encodeURIComponent(month)}`,
+}
+
+export const accountsApi = {
+  list: () => request('GET', '/accounts'),
+  create: (payload) => request('POST', '/accounts', { body: payload }),
+  update: (id, payload) => request('PATCH', `/accounts/${id}`, { body: payload }),
+  remove: (id) => request('DELETE', `/accounts/${id}`),
+}
+
+export const categoriesApi = {
+  tree: () => request('GET', '/categories'),
+  addChild: (payload) => request('POST', '/categories', { body: payload }),
+  update: (id, payload) => request('PATCH', `/categories/${id}`, { body: payload }),
+  remove: (id) => request('DELETE', `/categories/${id}`),
+}
+
+export const usersApi = {
+  uploadAvatar: async (file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const url = (BASE_URL.replace(/\/$/, '')) + '/users/me/avatar'
+    const t = tokenStore.get()
+    const headers = t ? { Authorization: `Bearer ${t}` } : {}
+    let res
+    try {
+      res = await fetch(url, { method: 'POST', body: fd, headers })
+    } catch (e) {
+      throw new ApiError('NETWORK_ERROR', '网络连接失败', 0)
+    }
+    const text = await res.text()
+    const payload = text ? safeJSON(text) : null
+    if (!res.ok) {
+      throw new ApiError(payload?.code || `HTTP_${res.status}`, payload?.message || '上传失败', res.status)
+    }
+    return payload && typeof payload === 'object' ? payload.data : payload
+  },
+  updateProfile: (patch) => request('PATCH', '/users/me/profile', { body: patch }),
 }
 
 export default {
@@ -123,4 +192,9 @@ export default {
   ApiError,
   tokenStore,
   authApi,
+  recordsApi,
+  statsApi,
+  accountsApi,
+  categoriesApi,
+  usersApi,
 }

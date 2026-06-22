@@ -21,14 +21,26 @@ const FILES = [
   '02_schema.sql',
   '03_seed_categories.sql',
   '04_sample_data.sql',
+  '06_auth_extras.sql',
+  '07_accounts.sql',
+  '08_category_user.sql',
 ]
 
-// 简单的 SQL 分隔器：按 ";\n" 切分；保留空行注释跳过
+// 简单的 SQL 分隔器：
+//   1) 先去掉所有 "--" 行注释（避免和 SET/PREPARE 粘连时误把整段当注释丢掉）
+//   2) 按 ";\n" 切分；保留空行
 function splitStatements(sql) {
-  return sql
+  const stripped = sql
+    .split('\n')
+    .map((line) => {
+      const idx = line.indexOf('--')
+      return idx === -1 ? line : line.slice(0, idx)
+    })
+    .join('\n')
+  return stripped
     .split(/;\s*(?:\n|$)/)
     .map((s) => s.trim())
-    .filter((s) => s && !s.startsWith('--') && s !== '')
+    .filter((s) => s && s !== '')
 }
 
 async function main() {
@@ -62,7 +74,9 @@ async function main() {
             err.code === 'ER_DB_CREATE_EXISTS' ||
             err.code === 'ER_TABLE_EXISTS_ERROR' ||
             err.code === 'ER_DUP_KEY' ||
-            err.code === 'ER_FK_DUP_NAME'
+            err.code === 'ER_FK_DUP_NAME' ||
+            err.code === 'ER_DUP_KEYNAME' ||
+            err.code === 'ER_DUP_FIELDNAME'
           ) {
             // eslint-disable-next-line no-console
             console.warn(`  · 已存在，跳过: ${err.code}`)

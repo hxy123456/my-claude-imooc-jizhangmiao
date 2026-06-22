@@ -124,7 +124,9 @@ async function onSubmit() {
     if (mode.value === 'register') {
       const ok = await authStore.register(form.value.username.trim(), form.value.password)
       if (ok) {
-        // 注册成功：清空密码、保留用户名、切换到登录 Tab、弹提示
+        // 注册成功：清空 session、重置 isLoggedIn（避免 App.vue 的 TabBar 提前出现）、
+        // 保留用户名、切换到登录 Tab、弹提示，让用户走"注册 → 登录"的正常流程
+        authStore.clearSession()
         form.value.password = ''
         mode.value = 'login'
         authStore.error = ''

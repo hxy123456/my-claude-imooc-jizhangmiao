@@ -101,7 +101,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import BottomSheet from './BottomSheet.vue'
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../utils/categories.js'
+import { useCategoryStore } from '../stores/categories.js'
 
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close', 'submit'])
@@ -115,8 +115,16 @@ const form = ref({
   recordDate: new Date().toISOString().slice(0, 10),
 })
 
+const categoryStore = useCategoryStore()
+
+/**
+ * 分类数据走 useCategoryStore,和设置页"分类管理"共用同一份数据源:
+ *   - 系统内置分类(由后端 seed) + 当前用户自定义子分类(后端按 user_id 隔离)
+ *   - App.vue 登录态建立后会调用 categoryStore.initForUser() 预拉一次
+ *   - 这里再加一道兜底:store 为空时主动拉(深链 / 首次安装直开弹层)
+ */
 const currentCategories = computed(() =>
-  form.value.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
+  form.value.type === 'expense' ? categoryStore.expenseList : categoryStore.incomeList
 )
 
 const selectedCategory = computed(() =>
@@ -143,6 +151,10 @@ watch(() => props.open, (val) => {
       subCategoryId: '',
       note: '',
       recordDate: new Date().toISOString().slice(0, 10),
+    }
+    // 兜底:App.vue 未触发 init(深链 / 异常场景)时,弹层打开时主动拉一次
+    if (!categoryStore.expenseList.length && !categoryStore.incomeList.length) {
+      categoryStore.initForUser()
     }
   }
 })

@@ -3,9 +3,15 @@
  * 单独抽离以便 server.js 之外的测试/工具脚本复用
  */
 const express = require('express')
+const path = require('path')
 const cors = require('cors')
 const env = require('./config/env')
 const authRouter = require('./routes/auth')
+const accountsRouter = require('./routes/accounts')
+const categoriesRouter = require('./routes/categories')
+const recordsRouter = require('./routes/records')
+const statsRouter = require('./routes/stats')
+const usersRouter = require('./routes/users')
 const errorHandler = require('./middleware/errorHandler')
 
 const app = express()
@@ -73,11 +79,22 @@ app.use((req, _res, next) => {
 
 // 健康检查
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'countcat-backend', version: '1.1.0' })
+  res.json({ ok: true, service: 'countcat-backend', version: '1.2.0' })
 })
 
 // 业务路由
 app.use('/api/auth', authRouter)
+app.use('/api/accounts', accountsRouter)
+app.use('/api/categories', categoriesRouter)
+app.use('/api/records', recordsRouter)
+app.use('/api/stats', statsRouter)
+app.use('/api/users', usersRouter)
+
+// 静态资源：上传的头像图片
+app.use('/uploads', express.static(path.resolve(__dirname, '..', 'public', 'uploads'), {
+  maxAge: '7d',
+  fallthrough: true,
+}))
 
 // 404
 app.use((_req, res) => {

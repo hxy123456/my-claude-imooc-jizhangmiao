@@ -1,7 +1,7 @@
 {
   "name": "countcat-backend",
-  "version": "1.1.0",
-  "description": "记账喵 (CountCat) 后端 - V1.1+ 多用户服务端实现",
+  "version": "1.2.0",
+  "description": "记账喵 (CountCat) 后端 - V1.2 全量业务接口",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -15,8 +15,10 @@
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
     "mysql2": "^3.11.5"
   },
   "devDependencies": {

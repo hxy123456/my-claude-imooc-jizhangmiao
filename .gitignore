@@ -41,3 +41,6 @@ Thumbs.db
 # Coverage
 coverage/
 *.lcov
+
+# Uploads (runtime data)
+backend/public/uploads/
