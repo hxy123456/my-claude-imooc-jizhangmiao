@@ -68,15 +68,10 @@ router.beforeEach(async (to, from, next) => {
   // 关键：每次路由切换都等待 /me 验证完成
   //  - 防止"刷新后路由先到 Home，currentUser 还是缓存的旧值"
   //  - 防止"token 已吊销却停留在受保护页面"
+  // BUGFIX: 移除冗余的 refreshMe() 调用 —— init() 内部已调 /me 验证，
+  //  再次调用会导致刷新时 /me 接口被请求两次
   if (!authStore.initialized) {
     await authStore.init()
-  }
-
-  // 已登录但首次刷新 → currentUser 可能还是 localStorage 缓存，并行刷一次最新
-  if (authStore.isLoggedIn && !authStore.userSynced) {
-    authStore.userSynced = true
-    // 后台静默同步，不阻塞路由
-    authStore.refreshMe().catch(() => { /* 已在 init 兜底 */ })
   }
 
   if (to.meta.requiresAuth && !authStore.isLoggedIn) {

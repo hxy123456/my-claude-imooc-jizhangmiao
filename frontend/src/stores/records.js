@@ -46,16 +46,18 @@ export const useRecordStore = defineStore('records', () => {
   /**
    * 登录态建立后调用：拉一次首页 + 当月数据。
    * - records:     最近一个月内的列表（Bills 进来后用 setMonth 再扩）
-   * - todayExpense: 今日支出
    * - monthlyStats: 当前月聚合（首页 / 统计页都吃它）
    * - 内置并发保护：若上一轮未完成则直接返回进行中的 Promise
+   *
+   * 注意：init() 不包含 refreshToday()，因为它会调 /records?page=... 与
+   * Bills 页的 searchRecords({month}) 撞车。首页在 onMounted 中单独调 refreshToday()。
    */
   async function init() {
     if (_initPromise) return _initPromise
     loading.value = true
     _initPromise = (async () => {
       try {
-        await Promise.all([refreshRecords(), refreshToday(), refreshMonthly(currentMonth.value)])
+        await Promise.all([refreshRecords(), refreshMonthly(currentMonth.value)])
       } finally {
         loading.value = false
         _initPromise = null
@@ -81,11 +83,21 @@ export const useRecordStore = defineStore('records', () => {
     todayExpense.value = +sum.toFixed(2)
   }
 
+  /** 防止 refreshMonthly() 并发重复请求（Stats 页 + App init 可能同时触发） */
+  let _monthlyPromise = null
+
   /** 拉取月度聚合（一次拿全） */
   async function refreshMonthly(month) {
-    const data = await statsApi.monthly(month)
-    monthlyStats.value = data
-    return data
+    const key = month || currentMonth.value
+    if (_monthlyPromise && _monthlyPromise._key === key) return _monthlyPromise
+    const p = statsApi.monthly(key).then(data => {
+      monthlyStats.value = data
+      return data
+    })
+    p._key = key
+    _monthlyPromise = p
+    p.finally(() => { _monthlyPromise = null })
+    return p
   }
 
   async function loadMonthlyStats() {

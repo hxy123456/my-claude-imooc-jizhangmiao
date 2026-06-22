@@ -156,8 +156,13 @@ function enrichRecord(record) {
 
 // 关键：登录后跳转 /home 时显式从后端拉一次当前月聚合 + 最近记录
 onMounted(() => {
-  if (stats.value.month !== dayjs().format('YYYY-MM') || !stats.value.records) {
-    store.init()
+  if (store.loading) {
+    // App.vue 的 initUserScopedStores 正在拉数据，等完成后刷新今日支出
+    store.init().finally(() => store.refreshToday())
+  } else if (stats.value.month !== dayjs().format('YYYY-MM') || !stats.value.records) {
+    store.init().then(() => store.refreshToday())
+  } else {
+    store.refreshToday()
   }
 })
 </script>
